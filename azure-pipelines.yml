@@ -1,0 +1,16 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - terraform
+
+stages:
+  - stage: DevelopmentStage
+    displayName: Terraform Development
+
+    jobs:
+      - template: .pipeline-templates/terraform-plan.yml
+      - template: .pipeline-templates/terraform-manual-approval.yml
+      - template: .pipeline-templates/terraform-apply.yml
