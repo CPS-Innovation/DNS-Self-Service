@@ -1,0 +1,17 @@
+jobs:
+  - job: apply
+    displayName: Terraform Apply
+    dependsOn: manualApproval
+    timeoutInMinutes: 30
+    steps:
+      - bash: |
+          cd terraform/$(environment) &&
+          terraform init &&
+          terraform validate &&
+          terraform apply -auto-approve
+        displayName: Terraform Apply
+        env:
+          ARM_SUBSCRIPTION_ID: 
+          ARM_CLIENT_ID: 
+          ARM_CLIENT_SECRET: 
+          ARM_TENANT_ID: 
