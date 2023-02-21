@@ -1,2 +1,2 @@
 # dns-test
-Repository to test dns config in Azure
+Repository to store configuration for DNS zones and records, for use within the Crown Prosecution Service

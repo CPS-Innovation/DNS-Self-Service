@@ -1,0 +1,106 @@
+name: 'Terraform Apply'
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # Generates a list of folders that are used as a matrix to cycle through
+  Generate-Matrix:
+    name: 'Generate-Matrix'
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      dirs: ${{ steps.read-folders.outputs.dirs }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - id: read-folders
+      run: |
+        cd ./terraform
+        folders=$(ls | grep -v modules | perl -e 'use JSON; @in=grep(s/\n$//, <>); print encode_json(\@in)."\n";')
+        echo "dirs=$folders" >> "$GITHUB_OUTPUT"
+
+  InitFmtPlanApply:
+    needs: Generate-Matrix
+    strategy:
+      matrix:
+         directory: ${{ fromJSON(needs.Generate-Matrix.outputs.dirs) }} # Reads folders in the terraform directory (excluding modules) and runs a task for each one
+    name: 'Terraform Apply'
+    runs-on: ubuntu-latest
+    environment: production
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Config Terraform plugin cache
+      run: |
+        echo 'plugin_cache_dir="$HOME/.terraform.d/plugin-cache"' >~/.terraformrc
+        mkdir --parents ~/.terraform.d/plugin-cache
+
+    - name: Cache Terraform
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.terraform.d/plugin-cache
+        key: ${{ runner.os }}-terraform-${{ hashFiles('**/.terraform.lock.hcl') }}
+        restore-keys: |
+          ${{ runner.os }}-terraform-
+
+    # Connect to Azure using OIDC
+    - name: 'Az CLI login'
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      env: 
+        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}   
+        ARM_USE_OIDC: true
+      run: |
+        cd ./terraform/${{ matrix.directory }}
+        terraform init
+
+    # Checks that all Terraform configuration files adhere to a canonical format
+    - name: Terraform Format
+      run: |
+        cd ./terraform/${{ matrix.directory }}   
+        terraform fmt -check
+
+    # Generates an execution plan for Terraform and applies
+    - name: Terraform Apply
+      env: 
+        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        ARM_USE_OIDC: true
+      run: |
+        cd ./terraform/${{ matrix.directory }}   
+        terraform apply -auto-approve
+
