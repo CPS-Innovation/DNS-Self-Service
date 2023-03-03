@@ -3,7 +3,7 @@ name: 'Terraform Plan'
 on:
   push:
     branches:
-      - '!master'   # excludes master
+      - '!main' # excludes main
 
 jobs:
   # Generates a list of folders that are used as a matrix to cycle through
@@ -13,10 +13,6 @@ jobs:
     environment: production
     outputs:
       dirs: ${{ steps.read-folders.outputs.dirs }}
-
-    defaults:
-      run:
-        shell: bash
 
     steps:
     - name: Checkout
@@ -53,15 +49,6 @@ jobs:
     name: 'Terraform Plan'
     runs-on: ubuntu-latest
     environment: production
-
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
-    defaults:
-      run:
-        shell: bash
-
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
     - name: Checkout
