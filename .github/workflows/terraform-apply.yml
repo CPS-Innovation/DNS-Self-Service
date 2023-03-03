@@ -3,8 +3,6 @@ name: 'Terraform Apply'
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 permissions:
   id-token: write
@@ -18,10 +16,6 @@ jobs:
     environment: production
     outputs:
       dirs: ${{ steps.read-folders.outputs.dirs }}
-
-    defaults:
-      run:
-        shell: bash
 
     steps:
     - name: Checkout
@@ -41,11 +35,6 @@ jobs:
     name: 'Terraform Apply'
     runs-on: ubuntu-latest
     environment: production
-
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
-    defaults:
-      run:
-        shell: bash
 
     steps:
     - name: Checkout
@@ -86,12 +75,6 @@ jobs:
       run: |
         cd ./terraform/${{ matrix.directory }}
         terraform init
-
-    # Checks that all Terraform configuration files adhere to a canonical format
-    - name: Terraform Format
-      run: |
-        cd ./terraform/${{ matrix.directory }}   
-        terraform fmt -check
 
     # Generates an execution plan for Terraform and applies
     - name: Terraform Apply

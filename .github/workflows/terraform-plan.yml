@@ -3,11 +3,7 @@ name: 'Terraform Plan'
 on:
   push:
     branches:
-      - '!master'   # excludes master
-
-permissions:
-  id-token: write
-  contents: read
+      - '!main' # excludes main
 
 jobs:
   # Generates a list of folders that are used as a matrix to cycle through
@@ -17,10 +13,6 @@ jobs:
     environment: production
     outputs:
       dirs: ${{ steps.read-folders.outputs.dirs }}
-
-    defaults:
-      run:
-        shell: bash
 
     steps:
     - name: Checkout
@@ -32,7 +24,24 @@ jobs:
         folders=$(ls | grep -v modules | perl -e 'use JSON; @in=grep(s/\n$//, <>); print encode_json(\@in)."\n";')
         echo "dirs=$folders" >> "$GITHUB_OUTPUT"
 
-  InitFmtPlan:
+  Format:
+    needs: Generate-Matrix
+    strategy:
+      matrix:
+        directory: ${{ fromJSON(needs.Generate-Matrix.outputs.dirs) }}
+    name: 'Terraform Format'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Terraform Format
+      run: |
+        cd ./terraform/${{ matrix.directory }}   
+        terraform fmt -check
+
+  InitPlan:
     needs: Generate-Matrix
     strategy:
       matrix:
@@ -40,11 +49,6 @@ jobs:
     name: 'Terraform Plan'
     runs-on: ubuntu-latest
     environment: production
-
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
-    defaults:
-      run:
-        shell: bash
 
     steps:
     - name: Checkout
@@ -83,11 +87,6 @@ jobs:
         cd ./terraform/${{ matrix.directory }}
         terraform init
 
-    # Checks that all Terraform configuration files adhere to a canonical format
-    - name: Terraform Format
-      run: |
-        cd ./terraform/${{ matrix.directory }}   
-        terraform fmt -check
 
     # Generates an execution plan for Terraform and applies
     - name: Terraform Apply
