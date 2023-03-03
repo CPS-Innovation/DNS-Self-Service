@@ -1,9 +1,7 @@
 name: 'Terraform Plan'
 
 on:
-  push:
-    branches:
-      - '!main' # excludes main
+  pull_request:
 
 jobs:
   # Generates a list of folders that are used as a matrix to cycle through
