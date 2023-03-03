@@ -37,9 +37,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Terraform Format
-      run: |
-        cd ./terraform/${{ matrix.directory }}   
-        terraform fmt -check
+      run: terraform -chdir=terraform/${{ matrix.directory }} fmt -check
 
   InitPlan:
     needs: Generate-Matrix
@@ -83,19 +81,49 @@ jobs:
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}   
         ARM_USE_OIDC: true
-      run: |
-        cd ./terraform/${{ matrix.directory }}
-        terraform init
-
+      run: terraform -chdir=terraform/${{ matrix.directory }} init
 
     # Generates an execution plan for Terraform and applies
-    - name: Terraform Apply
+    - name: Terraform Plan
       env: 
         ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
-      run: |
-        cd ./terraform/${{ matrix.directory }}   
-        terraform plan
+      run: terraform -chdir=terraform/${{ matrix.directory }} plan -no-color -input=false
+      continue-on-error: true
 
+    - name: Terraform Validate
+      id: validate
+      run: terraform validate -no-color
+
+    - name: Update Pull Request
+      uses: actions/github-script@v6
+      if: github.event_name == 'pull_request'
+      env:
+        PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const output = `#### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+
+          <details><summary>Show Plan</summary>
+
+          \`\`\`\n
+          ${process.env.PLAN}
+          \`\`\`
+
+          </details>
+
+          *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          })
+
+    - name: Terraform Status
+      if: steps.plan.outcome == 'failure'
+      run: exit 1
