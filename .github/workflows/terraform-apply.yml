@@ -72,9 +72,7 @@ jobs:
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}   
         ARM_USE_OIDC: true
-      run: |
-        cd ./terraform/${{ matrix.directory }}
-        terraform init
+      run: terraform -chdir=terraform/${{ matrix.directory }} init
 
     # Generates an execution plan for Terraform and applies
     - name: Terraform Apply
@@ -83,7 +81,5 @@ jobs:
         ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         ARM_USE_OIDC: true
-      run: |
-        cd ./terraform/${{ matrix.directory }}   
-        terraform apply -auto-approve
+      run: terraform -chdir=terraform/${{ matrix.directory }} apply -auto-approve
 
